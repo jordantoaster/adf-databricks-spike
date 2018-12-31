@@ -99,9 +99,9 @@ def trainModel():
   pipelineModel = Pipeline(stages=[regexTokenizer, stopwordsRemover, countVectors, label_stringIdx, LogisticRegression(maxIter=20, regParam=0.3, elasticNetParam=0)])
 
   # Train the Model
-  return pipelineModel.fit(trainingData)
+  return pipelineModel.fit(trainingData), testData
 
-model = trainModel()
+model, testData = trainModel()
 
 # Perform test set classification
 predictions = model.transform(testData)
@@ -119,7 +119,7 @@ accuracy = evaluator.evaluate(predictions)
 # Save the Model is accuracy is good enough!
 
 if accuracy > 0.85:
-  lrModel.write().overwrite().save("/mnt/adfdata-models/latest-model")
+  model.write().overwrite().save("/mnt/adfdata-models/latest-model")
   print "Model Promoted to production"
 else:
   print "Model not accepted for production"
