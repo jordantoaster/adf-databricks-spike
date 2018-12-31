@@ -50,6 +50,7 @@ from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.sql.types import *
 import os
+import pyspark.sql.functions as f
 
 # COMMAND ----------
 
@@ -64,7 +65,8 @@ df = sqlContext.createDataFrame(sc.emptyRDD(), schema)
 for filename in os.listdir("/dbfs/mnt/adfdata-staging/"):
   print("Found File: " + filename)
   df = df.union(spark.read.format("csv").option("header", "true").load("/mnt/adfdata-staging/" + filename))
-  
+
+df = sqlContext.createDataFrame(df.head(20), df.schema)
 display(df)
 
 # COMMAND ----------
@@ -99,8 +101,9 @@ predictionsFiltered = predictionsTimestamp.select("timestamp","prediction", "tex
 
 # Load the old report CSV - this recompiles the partitions
 filename = "daily-report.csv"
-# resultsDf = spark.read.format("csv").option("header", "true").load("/mnt/adfdata-report/" + filename)
-# mergedDF = predictionsFiltered.union(resultsDF) # The union stops the save from working 'job aborted' - WHY?
+resultsDf = spark.read.format("csv").option("header", "true").load("/mnt/adfdata-report/" + filename)
+mergedDF = predictionsFiltered.union(resultsDf) # The union stops the save from working 'job aborted' - WHY?
+# display(predictionsFiltered)
 
 # Output as a CSV to the reports container - this writes the file in partitions - need a way to merge, or just load in script when I want a csv
 # Is there a conversion to pandas I can do first?
