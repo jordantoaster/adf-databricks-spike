@@ -1,0 +1,154 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory Name",
+			"defaultValue": "ai-pipeline-df"
+		},
+		"databricks_accessToken": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accessToken' of 'databricks'"
+		},
+		"spucket_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'spucket'"
+		},
+		"checkHistorical_properties_typeProperties_fileName": {
+			"type": "string",
+			"defaultValue": ""
+		},
+		"checkHistorical_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "historical-data"
+		},
+		"checkModel_properties_typeProperties_fileName": {
+			"type": "string",
+			"defaultValue": "model-latest"
+		},
+		"checkModel_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "models"
+		},
+		"checkReports_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "reports"
+		},
+		"checkStage_properties_typeProperties_fileName": {
+			"type": "string",
+			"defaultValue": "reuters-allcats.csv"
+		},
+		"checkStage_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "staging-data"
+		},
+		"historical_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "historical-data"
+		},
+		"models_properties_typeProperties_fileName": {
+			"type": "string",
+			"defaultValue": ""
+		},
+		"models_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "models"
+		},
+		"reports_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "reports"
+		},
+		"staging_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "staging-data"
+		},
+		"retrainModel_properties_train_parameters_historicalDataSource": {
+			"type": "string",
+			"defaultValue": "historical-data"
+		},
+		"retrainModel_properties_train_parameters_modelSource": {
+			"type": "string",
+			"defaultValue": "models"
+		},
+		"containerUri": {
+			"type": "string",
+			"metadata": "URI to storage account containing linked ARM templates"
+		},
+		"containerSasToken": {
+			"type": "string",
+			"metadata": "Sas Token to storage account containing linked ARM templates"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "ArmTemplate_0",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2018-02-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_0.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"databricks_accessToken": {
+						"value": "[parameters('databricks_accessToken')]"
+					},
+					"spucket_connectionString": {
+						"value": "[parameters('spucket_connectionString')]"
+					},
+					"checkHistorical_properties_typeProperties_fileName": {
+						"value": "[parameters('checkHistorical_properties_typeProperties_fileName')]"
+					},
+					"checkHistorical_properties_typeProperties_folderPath": {
+						"value": "[parameters('checkHistorical_properties_typeProperties_folderPath')]"
+					},
+					"checkModel_properties_typeProperties_fileName": {
+						"value": "[parameters('checkModel_properties_typeProperties_fileName')]"
+					},
+					"checkModel_properties_typeProperties_folderPath": {
+						"value": "[parameters('checkModel_properties_typeProperties_folderPath')]"
+					},
+					"checkReports_properties_typeProperties_folderPath": {
+						"value": "[parameters('checkReports_properties_typeProperties_folderPath')]"
+					},
+					"checkStage_properties_typeProperties_fileName": {
+						"value": "[parameters('checkStage_properties_typeProperties_fileName')]"
+					},
+					"checkStage_properties_typeProperties_folderPath": {
+						"value": "[parameters('checkStage_properties_typeProperties_folderPath')]"
+					},
+					"historical_properties_typeProperties_folderPath": {
+						"value": "[parameters('historical_properties_typeProperties_folderPath')]"
+					},
+					"models_properties_typeProperties_fileName": {
+						"value": "[parameters('models_properties_typeProperties_fileName')]"
+					},
+					"models_properties_typeProperties_folderPath": {
+						"value": "[parameters('models_properties_typeProperties_folderPath')]"
+					},
+					"reports_properties_typeProperties_folderPath": {
+						"value": "[parameters('reports_properties_typeProperties_folderPath')]"
+					},
+					"staging_properties_typeProperties_folderPath": {
+						"value": "[parameters('staging_properties_typeProperties_folderPath')]"
+					},
+					"retrainModel_properties_train_parameters_historicalDataSource": {
+						"value": "[parameters('retrainModel_properties_train_parameters_historicalDataSource')]"
+					},
+					"retrainModel_properties_train_parameters_modelSource": {
+						"value": "[parameters('retrainModel_properties_train_parameters_modelSource')]"
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}

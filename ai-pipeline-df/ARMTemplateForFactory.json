@@ -1,0 +1,600 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory Name",
+			"defaultValue": "ai-pipeline-df"
+		},
+		"databricks_accessToken": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accessToken' of 'databricks'"
+		},
+		"spucket_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'spucket'"
+		},
+		"checkHistorical_properties_typeProperties_fileName": {
+			"type": "string",
+			"defaultValue": ""
+		},
+		"checkHistorical_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "historical-data"
+		},
+		"checkModel_properties_typeProperties_fileName": {
+			"type": "string",
+			"defaultValue": "model-latest"
+		},
+		"checkModel_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "models"
+		},
+		"checkReports_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "reports"
+		},
+		"checkStage_properties_typeProperties_fileName": {
+			"type": "string",
+			"defaultValue": "reuters-allcats.csv"
+		},
+		"checkStage_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "staging-data"
+		},
+		"historical_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "historical-data"
+		},
+		"models_properties_typeProperties_fileName": {
+			"type": "string",
+			"defaultValue": ""
+		},
+		"models_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "models"
+		},
+		"reports_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "reports"
+		},
+		"staging_properties_typeProperties_folderPath": {
+			"type": "string",
+			"defaultValue": "staging-data"
+		},
+		"retrainModel_properties_train_parameters_historicalDataSource": {
+			"type": "string",
+			"defaultValue": "historical-data"
+		},
+		"retrainModel_properties_train_parameters_modelSource": {
+			"type": "string",
+			"defaultValue": "models"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/inference')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data Avaliable",
+						"description": "Only fire if data is staged - this is fine for this pipline.",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "BlobSource",
+								"recursive": true
+							},
+							"dataset": {
+								"referenceName": "checkStage",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					},
+					{
+						"name": "Inference",
+						"type": "DatabricksNotebook",
+						"dependsOn": [
+							{
+								"activity": "Data Avaliable",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebookPath": "/Users/jordanmcdonaldmain@hotmail.com/inference"
+						},
+						"linkedServiceName": {
+							"referenceName": "databricks",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "ProcessResult",
+						"description": "Send report to user, or call Azure function to handle the result.\n\nAzure Logic App can be used to delete blobs through called the delete endpoint api",
+						"type": "Wait",
+						"dependsOn": [
+							{
+								"activity": "Inference",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"waitTimeInSeconds": 1
+						}
+					}
+				],
+				"parameters": {
+					"stagingData": {
+						"type": "String",
+						"defaultValue": "staging-data"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/checkStage')]",
+				"[concat(variables('factoryId'), '/linkedServices/databricks')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/train')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "A fresh train is triggered for this pipeline on all historical data.\n\n\nThis also accounts for the retrains process, which essentially appends data onto the set, adding new classes as need be.\n\nFuture change: add a parameter to indicate new classes added? this could maybe be explored in sandbox first.",
+				"activities": [
+					{
+						"name": "Get Historical Metadata",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "checkHistorical",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"fieldList": [
+								"childItems"
+							]
+						}
+					},
+					{
+						"name": "Check Data Exists",
+						"description": "If true then train, if false flag to user - Shows a more powerful approach to checking data rather than a pure lookup.",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "Historical Metadata Set",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@greater(length(variables('historical-metadata')), 0)",
+								"type": "Expression"
+							},
+							"ifFalseActivities": [
+								{
+									"name": "Email User",
+									"description": "Flag to Admin.",
+									"type": "Wait",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"waitTimeInSeconds": 1
+									}
+								},
+								{
+									"name": "ExceptionEmail",
+									"type": "WebActivity",
+									"dependsOn": [
+										{
+											"activity": "Email User",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"url": "https://prod-40.eastus.logic.azure.com:443/workflows/f4e1e87c894c416d91ed24bb461045c0/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=stxofbzhdbt0Rge8i05utXRXGFdq41mI8KmJNpU7fu8",
+										"method": "POST",
+										"headers": {},
+										"body": {
+											"message": "An Error Occured",
+											"dataFactoryName": "@{pipeline().DataFactory}",
+											"pipelineName": "@{pipeline().Pipeline}",
+											"receiver": "THIS IS NOT NEEDED"
+										}
+									}
+								}
+							],
+							"ifTrueActivities": [
+								{
+									"name": "Train Model",
+									"type": "DatabricksNotebook",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"notebookPath": "/Users/jordanmcdonaldmain@hotmail.com/train",
+										"baseParameters": {
+											"data": {
+												"value": "@pipeline().parameters.historicalDataSource",
+												"type": "Expression"
+											},
+											"model": {
+												"value": "@pipeline().parameters.modelSource",
+												"type": "Expression"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "databricks",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Historical Metadata Set",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "Get Historical Metadata",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "historical-metadata",
+							"value": {
+								"value": "@activity('Get Historical Metadata').output.childItems",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"parameters": {
+					"historicalDataSource": {
+						"type": "String",
+						"defaultValue": "historical-data"
+					},
+					"modelSource": {
+						"type": "String",
+						"defaultValue": "models"
+					}
+				},
+				"variables": {
+					"historical-metadata": {
+						"type": "Array"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/checkHistorical')]",
+				"[concat(variables('factoryId'), '/linkedServices/databricks')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/checkHistorical')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "spucket",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureBlob",
+				"typeProperties": {
+					"format": {
+						"type": "TextFormat",
+						"columnDelimiter": ",",
+						"rowDelimiter": "",
+						"nullValue": "\\N",
+						"treatEmptyAsNull": true,
+						"skipLineCount": 0,
+						"firstRowAsHeader": false
+					},
+					"fileName": "[parameters('checkHistorical_properties_typeProperties_fileName')]",
+					"folderPath": "[parameters('checkHistorical_properties_typeProperties_folderPath')]"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/spucket')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/checkModel')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Used to check if there is a an exist deployed model",
+				"linkedServiceName": {
+					"referenceName": "spucket",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureBlob",
+				"typeProperties": {
+					"format": {
+						"type": "TextFormat",
+						"columnDelimiter": ",",
+						"rowDelimiter": "",
+						"nullValue": "\\N",
+						"treatEmptyAsNull": true,
+						"skipLineCount": 0,
+						"firstRowAsHeader": false
+					},
+					"fileName": "[parameters('checkModel_properties_typeProperties_fileName')]",
+					"folderPath": "[parameters('checkModel_properties_typeProperties_folderPath')]"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/spucket')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/checkReports')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "spucket",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureBlob",
+				"typeProperties": {
+					"format": {
+						"type": "TextFormat",
+						"columnDelimiter": ",",
+						"rowDelimiter": "",
+						"nullValue": "\\N",
+						"treatEmptyAsNull": true,
+						"skipLineCount": 0,
+						"firstRowAsHeader": false
+					},
+					"folderPath": "[parameters('checkReports_properties_typeProperties_folderPath')]"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/spucket')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/checkStage')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "spucket",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureBlob",
+				"typeProperties": {
+					"format": {
+						"type": "TextFormat",
+						"columnDelimiter": ",",
+						"rowDelimiter": "",
+						"nullValue": "\\N",
+						"treatEmptyAsNull": true,
+						"skipLineCount": 0,
+						"firstRowAsHeader": false
+					},
+					"fileName": "[parameters('checkStage_properties_typeProperties_fileName')]",
+					"folderPath": "[parameters('checkStage_properties_typeProperties_folderPath')]"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/spucket')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/historical')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "spucket",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureBlob",
+				"typeProperties": {
+					"folderPath": "[parameters('historical_properties_typeProperties_folderPath')]"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/spucket')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/models')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "spucket",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureBlob",
+				"typeProperties": {
+					"fileName": "[parameters('models_properties_typeProperties_fileName')]",
+					"folderPath": "[parameters('models_properties_typeProperties_folderPath')]"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/spucket')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/reports')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "spucket",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureBlob",
+				"typeProperties": {
+					"folderPath": "[parameters('reports_properties_typeProperties_folderPath')]"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/spucket')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/staging')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "spucket",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureBlob",
+				"typeProperties": {
+					"folderPath": "[parameters('staging_properties_typeProperties_folderPath')]"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/spucket')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/databricks')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureDatabricks",
+				"typeProperties": {
+					"domain": "https://eastus.azuredatabricks.net",
+					"accessToken": {
+						"type": "SecureString",
+						"value": "[parameters('databricks_accessToken')]"
+					},
+					"existingClusterId": "1221-165611-iotas973"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/spucket')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobStorage",
+				"typeProperties": {
+					"connectionString": "[parameters('spucket_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/retrainModel')]",
+			"type": "Microsoft.DataFactory/factories/triggers",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "This will trigger in a set interval to retrain the underlying model based on all the historical data.",
+				"annotations": [],
+				"runtimeState": "Stopped",
+				"pipelines": [
+					{
+						"pipelineReference": {
+							"referenceName": "train",
+							"type": "PipelineReference"
+						},
+						"parameters": {
+							"historicalDataSource": "[parameters('retrainModel_properties_train_parameters_historicalDataSource')]",
+							"modelSource": "[parameters('retrainModel_properties_train_parameters_modelSource')]"
+						}
+					}
+				],
+				"type": "ScheduleTrigger",
+				"typeProperties": {
+					"recurrence": {
+						"frequency": "Month",
+						"interval": 1,
+						"startTime": "2018-12-29T16:19:00Z",
+						"timeZone": "UTC",
+						"schedule": {
+							"monthDays": [
+								15
+							]
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/train')]"
+			]
+		}
+	]
+}

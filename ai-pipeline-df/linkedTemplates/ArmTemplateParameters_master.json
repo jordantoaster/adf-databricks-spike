@@ -1,0 +1,57 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "ai-pipeline-df"
+		},
+		"databricks_accessToken": {
+			"value": ""
+		},
+		"spucket_connectionString": {
+			"value": ""
+		},
+		"checkHistorical_properties_typeProperties_fileName": {
+			"value": ""
+		},
+		"checkHistorical_properties_typeProperties_folderPath": {
+			"value": "historical-data"
+		},
+		"checkModel_properties_typeProperties_fileName": {
+			"value": "model-latest"
+		},
+		"checkModel_properties_typeProperties_folderPath": {
+			"value": "models"
+		},
+		"checkReports_properties_typeProperties_folderPath": {
+			"value": "reports"
+		},
+		"checkStage_properties_typeProperties_fileName": {
+			"value": "reuters-allcats.csv"
+		},
+		"checkStage_properties_typeProperties_folderPath": {
+			"value": "staging-data"
+		},
+		"historical_properties_typeProperties_folderPath": {
+			"value": "historical-data"
+		},
+		"models_properties_typeProperties_fileName": {
+			"value": ""
+		},
+		"models_properties_typeProperties_folderPath": {
+			"value": "models"
+		},
+		"reports_properties_typeProperties_folderPath": {
+			"value": "reports"
+		},
+		"staging_properties_typeProperties_folderPath": {
+			"value": "staging-data"
+		},
+		"retrainModel_properties_train_parameters_historicalDataSource": {
+			"value": "historical-data"
+		},
+		"retrainModel_properties_train_parameters_modelSource": {
+			"value": "models"
+		}
+	}
+}
