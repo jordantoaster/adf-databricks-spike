@@ -1,0 +1,14 @@
+{
+	"name": "historical",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "spucket",
+			"type": "LinkedServiceReference"
+		},
+		"type": "AzureBlob",
+		"typeProperties": {
+			"folderPath": "historical-data"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

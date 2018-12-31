@@ -1,0 +1,15 @@
+{
+	"name": "models",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "spucket",
+			"type": "LinkedServiceReference"
+		},
+		"type": "AzureBlob",
+		"typeProperties": {
+			"fileName": "",
+			"folderPath": "models"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

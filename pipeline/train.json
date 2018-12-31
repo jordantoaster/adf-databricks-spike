@@ -1,0 +1,151 @@
+{
+	"name": "train",
+	"properties": {
+		"description": "A fresh train is triggered for this pipeline on all historical data.\n\n\nThis also accounts for the retrains process, which essentially appends data onto the set, adding new classes as need be.\n\nFuture change: add a parameter to indicate new classes added? this could maybe be explored in sandbox first.",
+		"activities": [
+			{
+				"name": "Get Historical Metadata",
+				"type": "GetMetadata",
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "checkHistorical",
+						"type": "DatasetReference"
+					},
+					"fieldList": [
+						"childItems"
+					]
+				}
+			},
+			{
+				"name": "Check Data Exists",
+				"description": "If true then train, if false flag to user - Shows a more powerful approach to checking data rather than a pure lookup.",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Historical Metadata Set",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(length(variables('historical-metadata')), 0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Email User",
+							"description": "Flag to Admin.",
+							"type": "Wait",
+							"typeProperties": {
+								"waitTimeInSeconds": 1
+							}
+						},
+						{
+							"name": "ExceptionEmail",
+							"type": "WebActivity",
+							"dependsOn": [
+								{
+									"activity": "Email User",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"typeProperties": {
+								"url": "https://prod-40.eastus.logic.azure.com:443/workflows/f4e1e87c894c416d91ed24bb461045c0/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=stxofbzhdbt0Rge8i05utXRXGFdq41mI8KmJNpU7fu8",
+								"method": "POST",
+								"body": {
+									"message": "An Error Occured",
+									"dataFactoryName": "@{pipeline().DataFactory}",
+									"pipelineName": "@{pipeline().Pipeline}",
+									"receiver": "THIS IS NOT NEEDED"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Train Model",
+							"type": "DatabricksNotebook",
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"typeProperties": {
+								"notebookPath": "/Users/jordanmcdonaldmain@hotmail.com/train",
+								"baseParameters": {
+									"data": {
+										"value": "@pipeline().parameters.historicalDataSource",
+										"type": "Expression"
+									},
+									"model": {
+										"value": "@pipeline().parameters.modelSource",
+										"type": "Expression"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "databricks",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Historical Metadata Set",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get Historical Metadata",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"typeProperties": {
+					"variableName": "historical-metadata",
+					"value": {
+						"value": "@activity('Get Historical Metadata').output.childItems",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"historicalDataSource": {
+				"type": "String",
+				"defaultValue": "historical-data"
+			},
+			"modelSource": {
+				"type": "String",
+				"defaultValue": "models"
+			}
+		},
+		"variables": {
+			"historical-metadata": {
+				"type": "Array"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

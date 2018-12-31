@@ -1,0 +1,78 @@
+{
+	"name": "inference",
+	"properties": {
+		"activities": [
+			{
+				"name": "Data Avaliable",
+				"description": "Only fire if data is staged - this is fine for this pipline.",
+				"type": "Lookup",
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"typeProperties": {
+					"source": {
+						"type": "BlobSource",
+						"recursive": true
+					},
+					"dataset": {
+						"referenceName": "checkStage",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Inference",
+				"type": "DatabricksNotebook",
+				"dependsOn": [
+					{
+						"activity": "Data Avaliable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"typeProperties": {
+					"notebookPath": "/Users/jordanmcdonaldmain@hotmail.com/inference"
+				},
+				"linkedServiceName": {
+					"referenceName": "databricks",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "ProcessResult",
+				"description": "Send report to user, or call Azure function to handle the result.\n\nAzure Logic App can be used to delete blobs through called the delete endpoint api",
+				"type": "Wait",
+				"dependsOn": [
+					{
+						"activity": "Inference",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"typeProperties": {
+					"waitTimeInSeconds": 1
+				}
+			}
+		],
+		"parameters": {
+			"stagingData": {
+				"type": "String",
+				"defaultValue": "staging-data"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,24 @@
+{
+	"name": "checkStage",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "spucket",
+			"type": "LinkedServiceReference"
+		},
+		"type": "AzureBlob",
+		"typeProperties": {
+			"format": {
+				"type": "TextFormat",
+				"columnDelimiter": ",",
+				"rowDelimiter": "",
+				"nullValue": "\\N",
+				"treatEmptyAsNull": true,
+				"skipLineCount": 0,
+				"firstRowAsHeader": false
+			},
+			"fileName": "reuters-allcats.csv",
+			"folderPath": "staging-data"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

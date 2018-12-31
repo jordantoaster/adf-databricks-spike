@@ -1,0 +1,25 @@
+{
+	"name": "checkModel",
+	"properties": {
+		"description": "Used to check if there is a an exist deployed model",
+		"linkedServiceName": {
+			"referenceName": "spucket",
+			"type": "LinkedServiceReference"
+		},
+		"type": "AzureBlob",
+		"typeProperties": {
+			"format": {
+				"type": "TextFormat",
+				"columnDelimiter": ",",
+				"rowDelimiter": "",
+				"nullValue": "\\N",
+				"treatEmptyAsNull": true,
+				"skipLineCount": 0,
+				"firstRowAsHeader": false
+			},
+			"fileName": "model-latest",
+			"folderPath": "models"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
